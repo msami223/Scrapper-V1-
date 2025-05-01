@@ -1,11 +1,11 @@
-# app.py
-
 from flask import Flask, render_template, request, jsonify, send_file, Response
 import os
 from main_scraper import scrape_website_data, export_data_to_excel
 import time
 import threading
 import json
+from io import BytesIO
+import pandas as pd
 
 app = Flask(__name__)
 
@@ -42,19 +42,19 @@ def scrape():
         global urls_processed, current_url, stop_current_url, is_scraping
         for url in urls:
             current_url = url
-            stop_current_url = False
+            stop_current_url = False  # Reset before each URL starts
             status_messages.append(f"Starting scrape for {url}")
+            
+            # Check if we should skip this URL
+            if stop_current_url:
+                status_messages.append(f"Skipping {url}")
+                urls_processed += 1
+                status_messages.append(f"Progress: {urls_processed}/{total_urls}")
+                continue
             
             try:
                 scraped_data = scrape_website_data(url)
                 
-                # Check if we should skip this URL
-                if stop_current_url:
-                    status_messages.append(f"Skipped {url}")
-                    urls_processed += 1
-                    status_messages.append(f"Progress: {urls_processed}/{total_urls}")
-                    continue
-                    
                 urls_processed += 1
                 status_messages.append(f"Progress: {urls_processed}/{total_urls}")
                 
@@ -98,12 +98,16 @@ def skip_current():
 def download_current():
     global all_scraped_data
     if all_scraped_data:
-        filename = "partial_data.xlsx"
-        export_data_to_excel(all_scraped_data, filename)
-        status_messages.append(f"Partial data exported to {filename}")
-        return jsonify({'message': 'Partial data exported successfully.', 'filename': filename})
+        # Create the Excel file in memory (without saving to disk)
+        output = BytesIO()
+        df = pd.DataFrame(all_scraped_data)
+        df.to_excel(output, index=False)
+        output.seek(0)  # Go to the beginning of the file
+
+        # Send the file as a download
+        return send_file(output, as_attachment=True, download_name="scraped_data.xlsx", mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     else:
-        return jsonify({'message': 'No data available to download yet.'})
+        return jsonify({'message': 'No data available to download yet.'}), 400
 
 @app.route('/status')
 def status():
