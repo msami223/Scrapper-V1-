@@ -26,7 +26,6 @@ def index():
 def scrape():
     global total_urls, urls_processed, all_scraped_data, current_url, stop_current_url, scraping_thread, is_scraping
     
-    # If already scraping, return a message
     if is_scraping:
         return jsonify({'message': 'Scraping already in progress.'})
     
@@ -45,19 +44,26 @@ def scrape():
             stop_current_url = False  # Reset before each URL starts
             status_messages.append(f"Starting scrape for {url}")
             
-            # Check if we should skip this URL
+            # Skip current URL if flag is set
             if stop_current_url:
                 status_messages.append(f"Skipping {url}")
                 urls_processed += 1
                 status_messages.append(f"Progress: {urls_processed}/{total_urls}")
                 continue
-            
+
             try:
                 scraped_data = scrape_website_data(url)
                 
+                # If scraping should stop, continue
+                if stop_current_url:
+                    status_messages.append(f"Skipped {url}")
+                    urls_processed += 1
+                    status_messages.append(f"Progress: {urls_processed}/{total_urls}")
+                    continue
+
                 urls_processed += 1
                 status_messages.append(f"Progress: {urls_processed}/{total_urls}")
-                
+
                 if scraped_data:
                     all_scraped_data.append(scraped_data)
                     status_messages.append(f"Successfully scraped data from {url}")
@@ -68,7 +74,6 @@ def scrape():
                 urls_processed += 1
                 status_messages.append(f"Progress: {urls_processed}/{total_urls}")
 
-        # Export final data
         if all_scraped_data:
             filename = "scraped_data.xlsx"
             export_data_to_excel(all_scraped_data, filename)
