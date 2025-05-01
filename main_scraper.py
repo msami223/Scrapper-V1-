@@ -145,12 +145,21 @@ def export_data_to_excel(data, filename="scraped_data.xlsx"):
             "description": meta_description,  # Only meta description here
             "blog_link": item.get("Website", "#"),
             "facebook_link": item.get("Facebook", None),
+            # "facebook_followers": "",  # Replace with actual data if available
             "twitter_link": item.get("Twitter", None),
+            # "twitter_followers": "",  # Replace with actual data if available
             "linkedin_link": item.get("LinkedIn", None),
+            # "linkedin_followers": "",  # Replace with actual data if available
             "instagram_link": item.get("Instagram", None),
+            # "instagram_followers": "",  # Replace with actual data if available
             "tiktok_link": item.get("TikTok", None),
+            # "tiktok_followers": "",  # Replace with actual data if available
             "pinterest_link": item.get("Pinterest", None),
+            # "pinterest_followers": "",  # Replace with actual data if available
             "youtube_link": item.get("YouTube", None),
+            # "youtube_followers": "",  # Replace with actual data if available
+            # "frequency": "N/A",  # Placeholder; you can update with actual data
+            "domain_authority": "",  # Placeholder; you can update with actual data
             "email": item.get("Contact Email", "N/A"),
             "phone": item.get("Contact Phone", "N/A")
         })
@@ -159,3 +168,24 @@ def export_data_to_excel(data, filename="scraped_data.xlsx"):
     df = pd.DataFrame(formatted_data)
     df.to_excel(filename, index=False)
     print(f"Data exported to {filename}")
+
+
+def main(websites):
+    all_scraped_data = []
+    for website in websites:
+        scraped_data = scrape_website_data(website)
+        if scraped_data:
+            all_scraped_data.append(scraped_data)
+    if all_scraped_data:
+        export_data_to_excel(all_scraped_data)
+    else:
+        print("No data scraped.")
+
+
+if __name__ == "__main__":
+    import sys
+    websites_to_scrape = sys.argv[1:]
+    if websites_to_scrape:
+        main(websites_to_scrape)
+    else:
+        print("No URLs provided.")
