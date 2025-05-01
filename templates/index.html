@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Social Media Scraper</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+    />
+    <style>
+      body {
+        font-family: "Arial", sans-serif;
+        background-color: #f4f4f9;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+      .container {
+        background: #fff;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        width: 100%;
+        max-width: 600px;
+        text-align: center;
+      }
+      h1 {
+        font-family: "Georgia", serif;
+        color: #333;
+      }
+      label {
+        font-size: 1.2em;
+        margin-bottom: 10px;
+        display: block;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 20px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 1em;
+      }
+      button {
+        background-color: #5cb85c;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-size: 1em;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:hover {
+        background-color: #4cae4c;
+      }
+      button.skip-btn {
+        background-color: #f0ad4e;
+      }
+      button.skip-btn:hover {
+        background-color: #ec971f;
+      }
+      button.download-btn {
+        background-color: #5bc0de;
+      }
+      button.download-btn:hover {
+        background-color: #46b8da;
+      }
+      .loader {
+        display: none;
+        border: 4px solid #f3f3f3;
+        border-radius: 50%;
+        border-top: 4px solid #3498db;
+        width: 20px;
+        height: 20px;
+        animation: spin 2s linear infinite;
+        margin: 0 auto;
+        margin-top: 20px;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .status-window {
+        margin-top: 20px;
+        max-height: 200px;
+        overflow-y: auto;
+        text-align: left;
+        background: #f9f9f9;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .progress-count {
+        margin-top: 10px;
+        font-size: 1em;
+        color: #555;
+      }
+      .control-buttons {
+        margin-top: 15px;
+        display: none;
+      }
+      .download-link {
+        display: block;
+        margin-top: 10px;
+        color: #337ab7;
+        text-decoration: none;
+      }
+      .download-link:hover {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Scraper V1</h1>
+      <form id="scrapeForm">
+        <label for="urls">Enter website URLs (comma separated):</label>
+        <input type="text" id="urls" name="urls" required />
+        <button type="submit"><i class="fas fa-search"></i> Scrape URLs</button>
+      </form>
+      <div class="loader" id="loader"></div>
+      <div class="progress-count" id="progressCount"></div>
+      
+      <div class="control-buttons" id="controlButtons">
+        <button type="button" id="skipButton" class="skip-btn"><i class="fas fa-forward"></i> Skip Current URL</button>
+        <button type="button" id="downloadCurrentButton" class="download-btn"><i class="fas fa-download"></i> Download Current Data</button>
+      </div>
+      
+      <div class="status-window" id="statusWindow"></div>
+      <h2>Scraped Results</h2>
+      <ul id="results"></ul>
+    </div>
+
+    <script>
+      document.getElementById("scrapeForm").addEventListener("submit", function (event) {
+        event.preventDefault();
+        const urls = document.getElementById("urls").value.split(",").map((url) => url.trim());
+        const loader = document.getElementById("loader");
+        const statusWindow = document.getElementById("statusWindow");
+        const resultsList = document.getElementById("results");
+        const progressCount = document.getElementById("progressCount");
+        const controlButtons = document.getElementById("controlButtons");
+        
+        resultsList.innerHTML = "";
+        statusWindow.innerHTML = "";
+        progressCount.textContent = "";
+
+        loader.style.display = "block";
+        controlButtons.style.display = "block";
+
+        fetch("/scrape", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ urls: urls }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.message) {
+              const statusMessage = document.createElement("div");
+              statusMessage.textContent = data.message;
+              statusWindow.appendChild(statusMessage);
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            loader.style.display = "none";
+          });
+
+        const eventSource = new EventSource("/status");
+        eventSource.onmessage = function (event) {
+          const message = document.createElement("div");
+          message.textContent = event.data;
+          statusWindow.appendChild(message);
+          statusWindow.scrollTop = statusWindow.scrollHeight;
+
+          if (event.data.includes("Progress:")) {
+            progressCount.textContent = event.data;
+          }
+
+          if (event.data.includes("Data exported to") || event.data.includes("Partial data exported to")) {
+            const filename = event.data.split(" ").pop();
+            
+            // Check if download link already exists
+            const existingLink = document.querySelector(`.download-link[href="/download/${filename}"]`);
+            if (!existingLink) {
+              const downloadLink = document.createElement("a");
+              downloadLink.href = `/download/${filename}`;
+              downloadLink.textContent = `Download ${event.data.includes("Partial") ? "Partial" : "Complete"} Data`;
+              downloadLink.classList.add("download-link");
+              resultsList.appendChild(downloadLink);
+            }
+          }
+
+          if (event.data.includes("Scraping process completed.")) {
+            loader.style.display = "none";
+            controlButtons.style.display = "none";
+            eventSource.close();
+          }
+        };
+      });
+
+      // Skip current URL
+      document.getElementById("skipButton").addEventListener("click", function() {
+        fetch("/skip_current", {
+          method: "POST",
+        })
+          .then(response => response.json())
+          .then(data => {
+            const message = document.createElement("div");
+            message.textContent = data.message;
+            document.getElementById("statusWindow").appendChild(message);
+            document.getElementById("statusWindow").scrollTop = document.getElementById("statusWindow").scrollHeight;
+          })
+          .catch(error => {
+            console.error("Error:", error);
+          });
+      });
+
+      // Download current data
+      document.getElementById("downloadCurrentButton").addEventListener("click", function() {
+        fetch("/download_current", {
+          method: "POST",
+        })
+          .then(response => response.json())
+          .then(data => {
+            const message = document.createElement("div");
+            message.textContent = data.message;
+            document.getElementById("statusWindow").appendChild(message);
+            document.getElementById("statusWindow").scrollTop = document.getElementById("statusWindow").scrollHeight;
+            
+            if (data.filename) {
+              const downloadLink = document.createElement("a");
+              downloadLink.href = `/download/${data.filename}`;
+              downloadLink.textContent = "Download Partial Data";
+              downloadLink.classList.add("download-link");
+              document.getElementById("results").appendChild(downloadLink);
+            }
+          })
+          .catch(error => {
+            console.error("Error:", error);
+          });
+      });
+    </script>
+  </body>
+</html>
